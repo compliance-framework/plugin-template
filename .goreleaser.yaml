@@ -1,3 +1,4 @@
+
 # This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
 
@@ -16,11 +17,11 @@ before:
     - go generate ./...
 
 builds:
-  - env:
+  - binary: plugin
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
       - darwin
 
 archives:
@@ -33,10 +34,6 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
 
 changelog:
   sort: asc

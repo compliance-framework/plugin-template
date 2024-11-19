@@ -26,6 +26,15 @@ agent --plugin=[PATH_TO_YOUR_BINARY]
 
 ## Releasing
 
-Once you are ready to release your plugin, you need only create a release in Github, and the plugin binaries
-will be added as artifacts on the release page
+This plugin is released using goreleaser to build binaries, and Docker to build OCI artifacts (WIP), which will ensure a binary is built for most OS and Architecture combinations.
+
+You can find the binaries on each release of this plugin in the GitHub releases page.
+
+You can find the OCI implementations in the GitHub Packages page.
+
+[Not Yet Implemented] To run this plugin with the Compliance Agent, you can specify the release. The agent will take care of pulling the correct binary.
+
+```shell
+concom agent --plugin=https://github.com/chris-cmsoft/concom-plugin-local-ssh/releases/tag/0.0.1
+```
 
