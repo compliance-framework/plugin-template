@@ -34,19 +34,14 @@ type CompliancePlugin struct {
 // will be passed to Eval in sequence. Eval will run against the collected data N times, where N is the amount
 // of matching policies passed into the agent.
 //
-// As a complete example:
-//
-// The Local SSH plugin checks the local SSH configuration on a host machine.
-//
-// A user starts the agent, and passes the Local SSH plugin and 2 policy bundles to it.
+// A user starts the agent, and passes the plugin and any policy bundles.
 //
 // The agent will:
 // * Start the plugin
 // * Call Configure() with teh required config
-// * Call PrepareForEval() so the plugin can collect the local SSH configuration from the machine
-// * Call Eval() with the first policy bundle, so the plugin can report any violations against the configuration
-// * Call Eval() with the second policy bundle, so the plugin can report any violations against the configuration
-
+// * Call PrepareForEval() so the plugin can collect the relevant state
+// * Call Eval() with the first policy bundles (one by one, in turn),
+//   so the plugin can report any violations against the configuration
 func (l *CompliancePlugin) Configure(req *proto.ConfigureRequest) (*proto.ConfigureResponse, error) {
 
 	// Configure is used to set up any configuration needed by this plugin over its lifetime.
@@ -67,11 +62,11 @@ func (l *CompliancePlugin) PrepareForEval(req *proto.PrepareForEvalRequest) (*pr
 
 	// This method does most of the heavy lifting for your plugin.
 	// Here are a few examples of when it will be used:
-	// Local SSH Plugin: Fetch the SSH configuration from the local machine
-	// SAST Report Plugin: Convert a SAST sarif report into a usable structure for policies to be written against
-	// Azure VM Label Plugin: Collect all the VMs from the Azure API so they can be evaluated against policies
+	//   Local SSH Plugin: Fetch the SSH configuration from the local machine
+	//   SAST Report Plugin: Convert a SAST sarif report into a usable structure for policies to be written against
+	//   Azure VM Label Plugin: Collect all the VMs from the Azure API so they can be evaluated against policies
 	l.data = map[string]interface{}{
-		"foo": "bar",
+		"hello": "world",
 	}
 	return &proto.PrepareForEvalResponse{}, nil
 }
@@ -91,7 +86,7 @@ func (l *CompliancePlugin) Eval(request *proto.EvalRequest) (*proto.EvalResponse
 	// The Policy Manager aggregates much of the policy execution and output structuring.
 	results, err := policyManager.
 		New(ctx, l.logger, request.BundlePath).
-		Execute(ctx, "local_ssh", l.data)
+		Execute(ctx, "compliance_plugin", l.data)
 
 	if err != nil {
 		return &proto.EvalResponse{}, err
@@ -163,7 +158,7 @@ func main() {
 		JSONFormat: true,
 	})
 
-	localSSH := &CompliancePlugin{
+	compliancePluginObj := &CompliancePlugin{
 		logger: logger,
 	}
 	// pluginMap is the map of plugins we can dispense.
@@ -173,7 +168,7 @@ func main() {
 		HandshakeConfig: runner.HandshakeConfig,
 		Plugins: map[string]goplugin.Plugin{
 			"runner": &runner.RunnerGRPCPlugin{
-				Impl: localSSH,
+				Impl: compliancePluginObj,
 			},
 		},
 		GRPCServer: goplugin.DefaultGRPCServer,
