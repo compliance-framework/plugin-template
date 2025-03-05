@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	policyManager "github.com/chris-cmsoft/concom/policy-manager"
-	"github.com/chris-cmsoft/concom/runner"
-	"github.com/chris-cmsoft/concom/runner/proto"
+	"time"
+
+	policyManager "github.com/compliance-framework/agent/policy-manager"
+	"github.com/compliance-framework/agent/runner"
+	"github.com/compliance-framework/agent/runner/proto"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
-	"time"
 )
 
 type CompliancePlugin struct {
@@ -37,11 +38,11 @@ type CompliancePlugin struct {
 // A user starts the agent, and passes the plugin and any policy bundles.
 //
 // The agent will:
-// * Start the plugin
-// * Call Configure() with teh required config
-// * Call PrepareForEval() so the plugin can collect the relevant state
-// * Call Eval() with the first policy bundles (one by one, in turn),
-//   so the plugin can report any violations against the configuration
+//   - Start the plugin
+//   - Call Configure() with teh required config
+//   - Call PrepareForEval() so the plugin can collect the relevant state
+//   - Call Eval() with the first policy bundles (one by one, in turn),
+//     so the plugin can report any violations against the configuration
 func (l *CompliancePlugin) Configure(req *proto.ConfigureRequest) (*proto.ConfigureResponse, error) {
 
 	// Configure is used to set up any configuration needed by this plugin over its lifetime.
