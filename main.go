@@ -8,9 +8,12 @@ import (
 	policyManager "github.com/compliance-framework/agent/policy-manager"
 	"github.com/compliance-framework/agent/runner"
 	"github.com/compliance-framework/agent/runner/proto"
+	"github.com/compliance-framework/configuration-service/sdk"
 	"github.com/google/uuid"
 	"github.com/hashicorp/go-hclog"
 	goplugin "github.com/hashicorp/go-plugin"
+	protolang "google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type CompliancePlugin struct {
@@ -51,7 +54,7 @@ func (l *CompliancePlugin) Configure(req *proto.ConfigureRequest) (*proto.Config
 	// In this method, you should save any configuration values to your plugin struct, so you can later
 	// re-use them in PrepareForEval and Eval.
 
-	l.config = req.Config
+	l.config = req.GetConfig()
 	return &proto.ConfigureResponse{}, nil
 }
 
@@ -72,7 +75,7 @@ func (l *CompliancePlugin) PrepareForEval(req *proto.PrepareForEvalRequest) (*pr
 	return &proto.PrepareForEvalResponse{}, nil
 }
 
-func (l *CompliancePlugin) Eval(request *proto.EvalRequest) (*proto.EvalResponse, error) {
+func (l *CompliancePlugin) Eval(request *proto.EvalRequest, apiHelper runner.ApiHelper) (*proto.EvalResponse, error) {
 
 	// Eval is used to run policies against the data you've collected in PrepareForEval.
 	// Eval will be called N times for every scheduled plugin execution where N is the amount of matching policies
@@ -82,34 +85,56 @@ func (l *CompliancePlugin) Eval(request *proto.EvalRequest) (*proto.EvalResponse
 	// same data collected in PrepareForEval.
 
 	ctx := context.TODO()
-	start_time := time.Now().Format(time.RFC3339)
+	startTime := time.Now()
 
 	// The Policy Manager aggregates much of the policy execution and output structuring.
-	results, err := policyManager.
-		New(ctx, l.logger, request.BundlePath).
-		Execute(ctx, "compliance_plugin", l.data)
+	results, err := policyManager.New(ctx, l.logger, request.BundlePath).Execute(ctx, "compliance_plugin", l.data)
 
 	if err != nil {
-		return &proto.EvalResponse{}, err
+		l.logger.Error("Failed to evaluate against policy bundle", "error", err)
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
 	}
 
-	response := runner.NewCallableEvalResponse()
+	assessmentResult := runner.NewCallableAssessmentResult()
+	assessmentResult.Title = "Plugin template"
 
 	for _, result := range results {
 
 		// There are no violations reported from the policies.
 		// We'll send the observation back to the agent
 		if len(result.Violations) == 0 {
-			response.AddObservation(&proto.Observation{
-				Id:          uuid.New().String(),
-				Title:       "The plugin succeeded. No compliance issues to report.",
+			title := "The plugin succeeded. No compliance issues to report."
+			assessmentResult.AddObservation(&proto.Observation{
+				Uuid:        uuid.New().String(),
+				Title:       &title,
 				Description: "The plugin policies did not return any violations. The configuration is in compliance with policies.",
-				Collected:   time.Now().Format(time.RFC3339),
-				Expires:     time.Now().AddDate(0, 1, 0).Format(time.RFC3339), // Add one month for the expiration
-				RelevantEvidence: []*proto.Evidence{
+				Collected:   timestamppb.New(time.Now()),
+				Expires:     timestamppb.New(time.Now().AddDate(0, 1, 0)), // Add one month for the expiration
+				RelevantEvidence: []*proto.RelevantEvidence{
 					{
 						Description: fmt.Sprintf("Policy %v was evaluated, and no violations were found on machineId: %s", result.Policy.Package.PurePackage(), "ARN:12345"),
 					},
+				},
+				Labels: map[string]string{
+					"package": string(result.Policy.Package),
+					"type":    "template",
+				},
+			})
+
+			status := runner.FindingTargetStatusSatisfied
+			assessmentResult.AddFinding(&proto.Finding{
+				Title:       fmt.Sprintf("No violations found on %s", result.Policy.Package.PurePackage()),
+				Description: fmt.Sprintf("No violations found on the %s policy within the Template Compliance Plugin.", result.Policy.Package.PurePackage()),
+				Target: &proto.FindingTarget{
+					Status: &proto.ObjectiveStatus{
+						State: status,
+					},
+				},
+				Labels: map[string]string{
+					"package": string(result.Policy.Package),
+					"type":    "template",
 				},
 			})
 		}
@@ -117,40 +142,105 @@ func (l *CompliancePlugin) Eval(request *proto.EvalRequest) (*proto.EvalResponse
 		// There are violations in the policy checks.
 		// We'll send these observations back to the agent
 		if len(result.Violations) > 0 {
-			observation := &proto.Observation{
-				Id:          uuid.New().String(),
-				Title:       fmt.Sprintf("The plugin found violations for policy %s on machineId: %s", result.Policy.Package.PurePackage(), "ARN:12345"),
+			title := fmt.Sprintf("The plugin found violations for policy %s on machineId: %s", result.Policy.Package.PurePackage(), "ARN:12345")
+			observationUuid := uuid.New().String()
+			assessmentResult.AddObservation(&proto.Observation{
+				Uuid:        observationUuid,
+				Title:       &title,
 				Description: fmt.Sprintf("Observed %d violation(s) for policy %s within the Plugin on machineId: %s.", len(result.Violations), result.Policy.Package.PurePackage(), "ARN:12345"),
-				Collected:   time.Now().Format(time.RFC3339),
-				Expires:     time.Now().AddDate(0, 1, 0).Format(time.RFC3339), // Add one month for the expiration
-				RelevantEvidence: []*proto.Evidence{
+				Collected:   timestamppb.New(time.Now()),
+				Expires:     timestamppb.New(time.Now().AddDate(0, 1, 0)), // Add one month for the expiration
+				RelevantEvidence: []*proto.RelevantEvidence{
 					{
 						Description: fmt.Sprintf("Policy %v was evaluated, and %d violations were found on machineId: %s", result.Policy.Package.PurePackage(), len(result.Violations), "ARN:12345"),
 					},
 				},
-			}
-			response.AddObservation(observation)
+				Labels: map[string]string{
+					"package": string(result.Policy.Package),
+					"type":    "template",
+				},
+			})
 
 			for _, violation := range result.Violations {
-				response.AddFinding(&proto.Finding{
-					Id:                  uuid.New().String(),
-					Title:               violation.GetString("title", fmt.Sprintf("Validation on %s failed with violation %v", result.Policy.Package.PurePackage(), violation)),
-					Description:         violation.GetString("description", ""),
-					Remarks:             violation.GetString("remarks", ""),
-					RelatedObservations: []string{observation.Id},
+				status := runner.FindingTargetStatusNotSatisfied
+				assessmentResult.AddFinding(&proto.Finding{
+					Title:       violation.Title,
+					Description: violation.Description,
+					Remarks:     &violation.Remarks,
+					RelatedObservations: []*proto.RelatedObservation{
+						{
+							ObservationUuid: observationUuid,
+						},
+					},
+					Target: &proto.FindingTarget{
+						Status: &proto.ObjectiveStatus{
+							State: status,
+						},
+					},
+					Labels: map[string]string{
+						"package": string(result.Policy.Package),
+						"type":    "template",
+					},
+				})
+			}
+		}
+
+		for _, risk := range result.Risks {
+			links := []*proto.Link{}
+			for _, link := range risk.Links {
+				links = append(links, &proto.Link{
+					Href: link.URL,
+					Text: &link.Text,
 				})
 			}
 
+			assessmentResult.AddRiskEntry(&proto.Risk{
+				Title:       risk.Title,
+				Description: risk.Description,
+				Statement:   risk.Statement,
+				Props:       []*proto.Property{},
+				Links:       []*proto.Link{},
+			})
 		}
 	}
 
-	response.AddLogEntry(&proto.LogEntry{
-		Title: "Plugin checks completed",
-		Start: start_time,
-		End:   time.Now().Format(time.RFC3339),
+	endTime := time.Now()
+
+	// Send the results back to the agent using the API Helper process the agent created for us
+	assessmentResult.Start = timestamppb.New(startTime)
+	assessmentResult.End = timestamppb.New(endTime)
+
+	assessmentResult.AddLogEntry(&proto.AssessmentLog_Entry{
+		Title:       protolang.String("Template check"),
+		Description: protolang.String("Template plugin checks completed successfully"),
+		Start:       timestamppb.New(startTime),
+		End:         timestamppb.New(endTime),
 	})
 
-	return response.Result(), err
+	streamId, err := sdk.SeededUUID(map[string]string{
+		"type":    "template",
+		"_policy": request.GetBundlePath(),
+	})
+	if err != nil {
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
+	}
+
+	err = apiHelper.CreateResult(streamId.String(), map[string]string{
+		"type":    "template",
+		"_policy": request.GetBundlePath(),
+	}, assessmentResult.Result())
+	if err != nil {
+		l.logger.Error("Failed to add assessment result", "error", err)
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
+	}
+
+	return &proto.EvalResponse{
+		Status: proto.ExecutionStatus_SUCCESS,
+	}, nil
 }
 
 func main() {
