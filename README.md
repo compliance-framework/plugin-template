@@ -35,6 +35,6 @@ You can find the OCI implementations in the GitHub Packages page.
 [Not Yet Implemented] To run this plugin with the Compliance Agent, you can specify the release. The agent will take care of pulling the correct binary.
 
 ```shell
-concom agent --plugin=https://github.com/chris-cmsoft/concom-plugin-local-ssh/releases/tag/0.0.1
+concom agent --plugin=https://github.com/compliance-framework/plugin-template/releases/tag/0.0.1
 ```
 
