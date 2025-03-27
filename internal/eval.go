@@ -73,7 +73,10 @@ func (pe *PolicyEvaluator) Eval(data map[string]interface{}, policyPaths []strin
 
 		// The plugin should pass in some parameters here that will uniquely identify the subject.
 		// This could be a hostname in the case it's a machine, the identifier of a cloud resource, etc.
-		hostname := os.Getenv("HOSTNAME")
+    hostname, err := os.Hostname()
+    if err != nil {
+        hostname = "fallback-val"
+    }
 		subjectAttributeMap := map[string]string{
 			"type":     "machine-instance",
 			"hostname": hostname,
