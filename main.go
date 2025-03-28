@@ -84,11 +84,34 @@ func (l *CompliancePlugin) Eval(request *proto.EvalRequest, apiHelper runner.Api
 
 	evalStatus, err := policyEvaluator.Eval(data, request.PolicyPaths)
 
+	if err != nil {
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
+	}
+
+	observations := policyEvaluator.GetObservations()
+	findings := policyEvaluator.GetFindings()
+
+	if err = apiHelper.CreateObservations(ctx, observations); err != nil {
+		l.logger.Error("Failed to send observations", "error", err)
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
+	}
+
+	if err = apiHelper.CreateFindings(ctx, findings); err != nil {
+		l.logger.Error("Failed to send findings", "error", err)
+		return &proto.EvalResponse{
+			Status: proto.ExecutionStatus_FAILURE,
+		}, err
+	}
+
 	resp := &proto.EvalResponse{
 		Status: evalStatus,
 	}
 
-	return resp, err
+	return resp, nil
 }
 
 func main() {
