@@ -72,6 +72,31 @@ func (l *CompliancePlugin) Configure(req *proto.ConfigureRequest) (*proto.Config
 	return &proto.ConfigureResponse{}, nil
 }
 
+// Init prepares plugin metadata for a scheduled execution.
+//
+// The agent calls Init after Configure and before Eval, passing the policy paths
+// that will be evaluated for the current run. Use this method to register any
+// subject templates, risk templates, or other execution-scoped metadata the
+// agent needs before policy evaluation starts.
+//
+// When building subject templates, every label you reference in
+// TitleTemplate, DescriptionTemplate, PurposeTemplate, or IdentityLabelKeys
+// must also be declared in LabelSchema. If a templated key is not present in
+// the schema, the agent cannot populate it correctly.
+//
+// The agent also adds `_plugin` automatically to the subject schema, and it
+// should be treated as part of the subject identity. In practice, make sure
+// your subject identity accounts for `_plugin` together with the resource-
+// specific labels that uniquely identify the subject.
+//
+// For automation to trigger correctly, the subject Type must be
+// proto.SubjectType_SUBJECT_TYPE_COMPONENT. Do not use other subject types here
+// as of today, even if they appear semantically closer, because automation is
+// currently built around component subjects.
+//
+// In this template, Init builds and returns the subject templates used by the
+// policies so the agent can create consistent subjects for any evidence emitted
+// during Eval.
 func (l *CompliancePlugin) Init(req *proto.InitRequest, apiHelper runner.ApiHelper) (*proto.InitResponse, error) {
 	ctx := context.Background()
 	subjectTemplates := []*proto.SubjectTemplate{
@@ -94,6 +119,15 @@ func (l *CompliancePlugin) Init(req *proto.InitRequest, apiHelper runner.ApiHelp
 	return runner.InitWithSubjectsAndRisksFromPolicies(ctx, l.logger, req, apiHelper, subjectTemplates)
 }
 
+// Eval collects the data required for the requested policies and evaluates them.
+//
+// The agent calls Eval once per matching policy bundle during a scheduled
+// execution. The request includes the policy paths to run, and the plugin is
+// responsible for fetching the relevant source data, evaluating those policies,
+// and sending any resulting evidence back through the provided API helper.
+//
+// In practice, this is the main execution step for the plugin: fetch data,
+// evaluate `request.PolicyPaths`, and persist the produced evidence.
 func (l *CompliancePlugin) Eval(request *proto.EvalRequest, apiHelper runner.ApiHelper) (*proto.EvalResponse, error) {
 	// Eval is used to run policies against the data you've collected.
 	// Eval will be called N times for every scheduled plugin execution where N is the amount of matching policies
@@ -119,16 +153,25 @@ func (l *CompliancePlugin) Eval(request *proto.EvalRequest, apiHelper runner.Api
 
 	policyEvaluator := internal.NewPolicyEvaluator(ctx, l.logger, activities)
 
-	evidences, err := policyEvaluator.Eval(ctx, data, request.PolicyPaths, l.policyData, nil)
+	// Simple use case for evaluating all policies against the data collected
+	evidences, err := policyEvaluator.Eval(ctx, data, request.PolicyPaths, l.policyData, l.config.PolicyLabels)
+
+	// Advanced use case where policy bundles are filtered based on behavior
+	//
+	//
+	// The default mapping maps plugin defined behaviours, can be extended / overwritten via agent config
+	// defaultBehaviorMapping := map[string][]string{
+	// 	"first-behavior-policies":  {"first"},
+	// 	"second-behavior-policies": {"second"},
+	// }
+	// policyEval := request.WithDefaultPolicyBehavior(defaultBehaviorMapping).WithUndefinedMappedTo([]string{"first"})
+	// policyPathsByBehavior := policyEval.PolicyPathsForBehavior("first")
+	// evidences, err = policyEvaluator.Eval(ctx, data, policyPathsByBehavior, l.policyData, l.config.PolicyLabels)
+
 	if err != nil {
 		return &proto.EvalResponse{
 			Status: proto.ExecutionStatus_FAILURE,
 		}, fmt.Errorf("failed to evaluate policies: %w", err)
-	}
-
-	if err != nil {
-		l.logger.Error("Error evaluating policies", "error", err)
-		return nil, err
 	}
 
 	if err := apiHelper.CreateEvidence(ctx, evidences); err != nil {
