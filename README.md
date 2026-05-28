@@ -18,23 +18,45 @@ goreleaser release --snapshot --clean
 
 ## Usage
 
-You can use this plugin by passing it to the compliiance agent
+You can use this plugin by passing it to the compliance agent or by specifying it in the agent config
 
 ```shell
 agent --plugin=[PATH_TO_YOUR_BINARY]
 ```
 
-## Releasing
+```yaml
+# AGENT CONFIG
 
-This plugin is released using goreleaser to build binaries, and Docker to build OCI artifacts (WIP), which will ensure a binary is built for most OS and Architecture combinations.
+verbosity: 2
 
-You can find the binaries on each release of this plugin in the GitHub releases page.
+api:
+  url: http://localhost:8080
 
-You can find the OCI implementations in the GitHub Packages page.
+plugins:
+  # Plugin execution identifier
+  myplugin:
+    # Config mapping passed through to Configure lifecycle event
+    config:
+      anykey: "anyval"
+      policy_labels: "{\"my_key\":\"my_value\"}"
+    # Compatible protocol version: Defaults to 1, can also be determined a plugin image manifest annotation of "org.ccf.plugin.protocol.version=2"
+    protocol_version: 2
+    # Source to plugin executable location. Can be an OCI image or local executable
+    source: /path/to/dist/plugin
+    # List to all policies to pass to plugin, all may be processed or filtered later via policy_behavior
+    policies:
+       - /path/to/policy/bundle.tar.gz
+    # Policy behaviour can be defined to later filter policies to specific bundles per execution
+    # This is useful if your plugin proccesses more than 1 type of component
+    policy_behavior:
+      string-to-match-to-policy:
+        - "associated-behavior-1"
+    # Policy data is passed to the plugin for evaluation, can be used to customize evaluation parameters
+    policy_data:
+      policy_data_key: "policy_data_value"
+        
 
-[Not Yet Implemented] To run this plugin with the Compliance Agent, you can specify the release. The agent will take care of pulling the correct binary.
-
-```shell
-concom agent --plugin=https://github.com/compliance-framework/plugin-template/releases/tag/0.0.1
 ```
+
+You can also use `make run` to build this plugin and execute against the agent, if the agent is located in the parent directory. See Makefile:run
 

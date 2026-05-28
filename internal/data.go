@@ -7,17 +7,17 @@ import (
 
 type DataFetcher struct {
 	logger hclog.Logger
-	config map[string]string
+	config *PluginConfig
 }
 
-func NewDataFetcher(logger hclog.Logger, config map[string]string) *DataFetcher {
+func NewDataFetcher(logger hclog.Logger, config *PluginConfig) *DataFetcher {
 	return &DataFetcher{
 		logger: logger,
 		config: config,
 	}
 }
 
-func (df DataFetcher) FetchData() (map[string]any, []*proto.Step, error) {
+func (df DataFetcher) FetchData() (map[string]any, error) {
 	steps := make([]*proto.Step, 0)
 
 	steps = append(steps, &proto.Step{
@@ -27,6 +27,7 @@ func (df DataFetcher) FetchData() (map[string]any, []*proto.Step, error) {
 	})
 
 	return map[string]any{
-		"hello": "world",
-	}, steps, nil
+		"data_key":   "data_value",
+		"data_key_2": "data_value_2",
+	}, nil
 }
