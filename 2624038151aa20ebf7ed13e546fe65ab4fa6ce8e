@@ -1,2 +1,5 @@
 lisa-addressed:
 - CORE-STYLE-001 README.md extra blank line before "Policy data": removed.
+
+lisa-selfreview:
+- pass 2: no findings; approve. Deferred (out of scope, follow-up): pre-existing ineffassign/SA4010 on unused `steps` in internal/data.go and internal/eval.go (whole-repo lint only; new-from-merge-base lint is clean).
