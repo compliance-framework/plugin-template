@@ -60,7 +60,6 @@ plugins:
 
 You can also use `make run` to build this plugin and execute against the agent, if the agent is located in the parent directory. See Makefile:run
 
-
 ## Policy data
 
 `policy_data` in the plugin's block of the agent configuration reaches the plugin in
