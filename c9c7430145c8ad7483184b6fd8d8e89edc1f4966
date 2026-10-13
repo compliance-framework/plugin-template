@@ -1,0 +1,6 @@
+lisa-design:
+- Manifest seeded at 0.0.0 with NO bootstrap-sha (user decision 2026-10-13): a SHA from the template's history would not exist in a repo created from it; the template has no releases.
+- Release jobs (release-please, release, cut-prerelease) carry a job-level `if: ${{ !github.event.repository.is_template }}` so they skip in the template and run in repos created from it; preview.yml and ci.yml are deliberately unguarded (spec).
+- Guard comment avoids naming the template as "this repo" so it stays accurate after copying.
+- release-please-config.json is byte-equal to mock-plugin-1's (no drift vs workflows release-please/defaults.json at v1.5.2).
+- .goreleaser.yaml builds/archives untouched; only `release: {prerelease: auto, replace_existing_artifacts: true}` added (release-go-plugin.yml requires the former, warns without the latter).
