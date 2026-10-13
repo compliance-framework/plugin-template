@@ -1,0 +1,4 @@
+lisa-design:
+- ci.yml is mock-plugin-1's caller verbatim (pinned 7b55019ed36050a57eb8273f6a67fd4b2395adb0 # v1.5.1) minus its trial header comment; no repo-specific inputs.
+- push.yml/test.yml deleted: only push.yml called test.yml. release.yml and build-and-upload.yml untouched (W3 replaces them).
+- .goreleaser.yaml `format: tar.gz` -> `formats: [tar.gz]`: goreleaser release --snapshot before/after produced the same five archives (names, platforms, contents LICENSE/README.md/plugin). Removes the deprecation `goreleaser check` reports.
