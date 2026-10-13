@@ -60,3 +60,29 @@ plugins:
 
 You can also use `make run` to build this plugin and execute against the agent, if the agent is located in the parent directory. See Makefile:run
 
+
+## Policy data
+
+`policy_data` in the plugin's block of the agent configuration reaches the plugin in
+`Configure` (`ConfigureRequest.policy_data`). The template keeps it as a map on the
+plugin (cleared when a later `Configure` doesn't set it) and passes it to every
+`policyManager.NewPolicyProcessor` call, so policies can read each key as `data.<key>`.
+For example, to check the template's `data_key` against an allow-list:
+
+```yaml
+plugins:
+  myplugin:
+    # ...plugin settings as above...
+    policy_data:
+      approved_values:
+        - data_value
+```
+
+```rego
+violation contains {"id": "unapproved_value"} if {
+	not input.data_key in data.approved_values
+}
+```
+
+Keep this wiring when you adapt the template: without it, `policy_data` set in the agent
+configuration is silently ignored.
