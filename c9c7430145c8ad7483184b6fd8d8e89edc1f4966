@@ -4,3 +4,7 @@ lisa-design:
 - Guard comment avoids naming the template as "this repo" so it stays accurate after copying.
 - release-please-config.json is byte-equal to mock-plugin-1's (no drift vs workflows release-please/defaults.json at v1.5.2).
 - .goreleaser.yaml builds/archives untouched; only `release: {prerelease: auto, replace_existing_artifacts: true}` added (release-go-plugin.yml requires the former, warns without the latter).
+
+lisa-selfreview:
+- pass 1: approve, no findings. Considered and dismissed: PLUGIN-CI-001 (no cancel-in-progress) on release-please/release/cut-prerelease, copied verbatim from the reviewed mocks/plugin-github-repositories#26; cancelling a release run midway would be wrong.
+- Not verifiable pre-merge: the guard relies on github.event.repository.is_template being in push/release/workflow_dispatch payloads; if absent, `!null` is true and the job would run (and fail on the missing release env secrets). Check the first release-please run on main shows the job skipped.
