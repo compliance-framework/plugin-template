@@ -16,6 +16,16 @@ Once you are ready to serve the plugin, you need to build the binaries which can
 goreleaser release --snapshot --clean
 ```
 
+## Releasing
+
+For a repo created from this template:
+
+* Releases come from release-please PRs: merging one tags `vX.Y.Z` and publishes the plugin.
+* Release candidates (`vX.Y.Z-rcN`) come from the `cut-prerelease` workflow.
+* If the repo already has releases, set `.release-please-manifest.json` to its current version first.
+
+The release workflows are skipped in this template repo itself.
+
 ## Usage
 
 You can use this plugin by passing it to the compliance agent or by specifying it in the agent config
