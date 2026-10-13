@@ -1,0 +1,5 @@
+lisa-design:
+- The template already stored ConfigureRequest.policy_data (as AsMap(), nil when unset) and passed it to NewPolicyProcessor before this bump, so no code change was needed and the title stays `fix(deps)` (spec step 2, first case).
+- Added TestConfigureStoresPolicyData and a README "Policy data" section anyway: this repo is the template new plugins copy, and the user asked that the README show plugin authors how policy_data reaches Rego. google.golang.org/protobuf becomes a direct requirement because the test builds a structpb.Struct.
+- The README's Rego example uses rego v1 `violation contains ... if` syntax (verified with opa check --strict and opa eval) and the template's own `data_key` so it lines up with FetchData.
+- Pre-existing lint findings (ineffassign/SA4010 on unused `steps` in internal/data.go and internal/eval.go) are left alone: fixing them means attaching steps to activities, which changes the emitted evidence. Reported as a follow-up.
